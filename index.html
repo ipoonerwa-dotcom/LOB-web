@@ -389,21 +389,47 @@ async function contract() { return await tw.contract(ABI, addr); }
 // Admin 可以操作的按钮 ID —— 仅白名单相关；其它一律 owner-only。
 const ADMIN_BTN_IDS = new Set(["btnWlAdd", "btnWlDel", "btnWlBatchAdd", "btnWlBatchDel"]);
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 带 429 重试 + 节流的 view 调用。
+ * TronGrid 免费额度 3 次/秒，并发多了会 429。串行 + 间隔 350ms + 指数退避重试。
+ */
+async function safeCall(callFn, label, retries = 4) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await callFn();
+    } catch (e) {
+      const msg = (e.message || JSON.stringify(e)).toLowerCase();
+      const is429 = msg.includes("429") || msg.includes("too many") || msg.includes("rate");
+      if (is429 && i < retries - 1) {
+        const wait = 800 * (i + 1);
+        log(`${label} 触发限流，${wait}ms 后重试…`, "warn");
+        await sleep(wait);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 async function refresh() {
   if (!tw || !addr) return;
   try {
     const c = await contract();
-    const r = await c.status().call();
+    // 串行读取 + 每次之间小间隔，避免 TronGrid 3 req/s 限流
+    const r = await safeCall(() => c.status().call(), "status");
     st = {
       launched: r[0], openAt: Number(r[1]), now: Number(r[2]),
       window: Number(r[3]), max: Number(r[4]), sellOpen: r[5],
       owner: tw.address.fromHex(r[6]),
     };
-    const [sup, bal, adminHex] = await Promise.all([
-      c.totalSupply().call(),
-      c.balanceOf(me).call(),
-      c.admin().call(),
-    ]);
+    await sleep(350);
+    const sup = await safeCall(() => c.totalSupply().call(), "totalSupply");
+    await sleep(350);
+    const bal = await safeCall(() => c.balanceOf(me).call(), "balanceOf");
+    await sleep(350);
+    const adminHex = await safeCall(() => c.admin().call(), "admin");
     st.admin = tw.address.fromHex(adminHex);
     const ZERO = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"; // TRON address(0) 的 base58
 
@@ -435,7 +461,12 @@ async function refresh() {
     clearInterval(timer);
     timer = setInterval(paintPhase, 1000);
   } catch (e) {
-    log("读取合约失败：" + (e.message || e) + "（地址对吗？是不是连错网络了？）", "err");
+    const msg = (e.message || String(e)).toLowerCase();
+    if (msg.includes("429") || msg.includes("too many") || msg.includes("rate")) {
+      log("TronGrid 触发限流（429），可能是刚才请求太密集。等 5-10 秒后再点【加载】重试即可。", "err");
+    } else {
+      log("读取合约失败：" + (e.message || e) + "（地址对吗？是不是连错网络了？）", "err");
+    }
     $("#app").style.display = "none";
   }
 }

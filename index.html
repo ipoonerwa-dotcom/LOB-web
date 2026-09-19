@@ -130,7 +130,7 @@
 <header>
   <div>
     <h1>LOB 开发者后台</h1>
-    <div class="sub">TRC20 · 限时防夹版 · TRON</div>
+    <div class="sub">TRC20 · 交易开关 + 白名单 · TRON</div>
   </div>
   <div class="spacer"></div>
   <span class="pill" id="netPill">未连接</span>
@@ -156,72 +156,29 @@
     <div class="kv">
       <div><div class="k">总量</div><div class="v" id="vSupply">—</div></div>
       <div><div class="k">我的余额</div><div class="v" id="vMyBal">—</div></div>
-      <div><div class="k">防夹窗口</div><div class="v" id="vWindow">—</div></div>
-      <div><div class="k">窗口硬上限</div><div class="v" id="vMax">—</div></div>
       <div><div class="k">开盘时间</div><div class="v sm" id="vOpenAt">—</div></div>
       <div><div class="k">Owner</div><div class="v sm" id="vOwner">—</div></div>
     </div>
-    <div class="hint">
-      合约里 <code>MAX_PROTECT_WINDOW</code> 是 <code>constant = 100000 小时</code>，写死在字节码里；<code>openAt</code> 一旦设定只能提前、不能推迟。
-      也就是说：openAt 到期后全员必定可以卖出、owner 无法把开盘时间往后推，但硬上限本身很宽松，实际防夹时长完全取决于你在 <code>launch()</code> 前设的 <code>protectWindow</code>（建议 300–900 秒）。
-    </div>
   </div>
 
-  <!-- 开盘控制 -->
+  <!-- 交易开关 -->
   <div class="card sec">
-    <h2>开盘控制</h2>
+    <h2>交易开关</h2>
     <div class="warn-box" id="launchWarn" style="display:none"></div>
-    <div class="grid g2">
-      <div>
-        <label>防夹窗口时长（秒，合约硬上限 360000000 ≈ 100000 小时，仅启动前可改）</label>
-        <div class="row">
-          <input id="winSec" type="number" min="0" max="360000000" placeholder="600" />
-          <button id="btnSetWin">设置</button>
-        </div>
-        <div class="hint">建议 300–900 秒。设 0 = 启动即全开，没有防夹。<b>默认值是 180000000 秒（≈5.7 年）</b>，launch() 前务必显式改小，否则会把开盘时间推到几年后。</div>
-      </div>
-      <div>
-        <label>启动交易</label>
-        <div class="row">
-          <button class="pri" id="btnLaunch" style="flex:1">launch() 开始计时</button>
-        </div>
-        <div class="hint">加完流动性、注册好池子地址之后再调。只能调一次。</div>
-      </div>
-    </div>
-    <div class="grid g2 sec">
-      <div>
-        <label>立刻开盘（放弃剩余防夹时间）</label>
-        <button id="btnOpenNow" style="width:100%">openNow()</button>
-      </div>
-      <div>
-        <label>把开盘时间提前到（Unix 秒）</label>
-        <div class="row">
-          <input id="fwdTs" type="number" placeholder="1789000000" />
-          <button id="btnFwd">提前</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 池子 -->
-  <div class="card sec">
-    <h2>池子地址</h2>
     <div class="row">
-      <div><label>AMM 池子地址（SunSwap pair）</label><input id="pairAddr" placeholder="T..." spellcheck="false" /></div>
-      <button id="btnPairOn">标记为池子</button>
-      <button id="btnPairOff">取消标记</button>
-      <button class="sm" id="btnPairCheck">查询</button>
+      <button class="pri" id="btnOpenTrading" style="flex:1">打开交易 openTrading()</button>
     </div>
     <div class="hint">
-      加流动性后，把 SunSwap 生成的 pair 地址登记进来，防夹窗口才知道哪笔是"卖出"。
-      开盘后这个设置不再有任何作用。
+      <b>只能打开一次，打开后永久开放，任何人（包括 owner）都关不掉。</b><br />
+      打开前：只要转账的一方是合约（SunSwap 池子、路由），另一方就必须在白名单里 —— 所以只有白名单能买、能卖、能加池子；钱包之间互相转账不受影响。
+      不需要登记池子地址，池子一创建就受保护。
     </div>
   </div>
 
   <!-- 白名单 -->
   <div class="card sec">
-    <h2>卖出白名单</h2>
-    <div class="hint" style="margin:0 0 14px">窗口内可以提前卖出（做市/团队用）。<b>开盘后白名单不再有任何特权</b>，所有人一样。</div>
+    <h2>白名单</h2>
+    <div class="hint" style="margin:0 0 14px">交易开关打开前，只有白名单地址能在池子里买卖、加池子。部署地址默认在白名单里。<b>开盘后白名单不再有任何特权</b>，所有人一样。<br />白名单<b>只能加普通钱包</b>，合约地址（池子、路由、批量转账工具）会被合约拒绝。开盘前白名单用户买卖请直接用 SunSwap V2 路由、收款地址填自己。</div>
     <div class="grid g2">
       <div>
         <label>单个地址</label>
@@ -246,29 +203,6 @@
     </div>
   </div>
 
-  <!-- Admin 委托 -->
-  <div class="card sec">
-    <h2>Admin 委托（可选）</h2>
-    <div class="hint" style="margin:0 0 14px">
-      Admin 是 owner 的<b>受限委托</b>：<b>只能改白名单，其它任何操作都不能做</b>（不能 launch / 改 pair / 改窗口 / 转/弃 owner）。
-      Owner 可以随时更换或清零 admin。<b>owner 弃权时 admin 不会被清零</b> —— 若不希望遗留 admin，请在弃权前先"清零"。
-    </div>
-    <div class="grid g2">
-      <div>
-        <label>当前 admin 地址</label>
-        <input id="curAdmin" disabled />
-      </div>
-      <div>
-        <label>设置 / 更换 admin</label>
-        <div class="row">
-          <input id="newAdmin" placeholder="T..." spellcheck="false" />
-          <button id="btnSetAdmin">设置</button>
-          <button class="sm" id="btnClearAdmin">清零</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- 所有权 -->
   <div class="card sec">
     <h2>所有权</h2>
@@ -277,7 +211,7 @@
       <button id="btnXferOwner">转移</button>
       <button class="danger" id="btnRenounce">弃权（不可逆）</button>
     </div>
-    <div class="hint">弃权是安全的：开盘由时间戳自动触发，不需要 owner 再做任何事，合约不会被锁死。<b>注意：弃权不会清零 admin</b>，如果不希望留下 admin，请先在上面把 admin 清零，再弃权。</div>
+    <div class="hint">转移后当前钱包失去全部管理权限。<b>弃权只能在交易开关打开之后进行</b>（合约强制），防止弃权后交易永远打不开；弃权后白名单也再无法修改。</div>
   </div>
 
 </div>
@@ -300,24 +234,29 @@ const ENERGY_SUN = 100;       // 直接烧的能量单价
 const FEE_MARGIN = 1.4;       // feeLimit 余量：给少了会烧光再回滚
 
 const ABI = [
-  {"inputs":[],"name":"status","outputs":[{"type":"bool"},{"type":"uint64"},{"type":"uint64"},{"type":"uint64"},{"type":"uint64"},{"type":"bool"},{"type":"address"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"admin","outputs":[{"type":"address"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"totalSupply","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"status","outputs":[{"type":"address"},{"type":"bool"},{"type":"uint64"},{"type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"type":"address"}],"name":"balanceOf","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"type":"address"}],"name":"isPair","outputs":[{"type":"bool"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"type":"address"}],"name":"sellWhitelist","outputs":[{"type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"type":"address"}],"name":"isWhitelisted","outputs":[{"type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"type":"address[]"}],"name":"areWhitelisted","outputs":[{"type":"bool[]"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"type":"uint64"}],"name":"setProtectWindow","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[],"name":"launch","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[],"name":"openNow","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"type":"uint64"}],"name":"bringOpenForward","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"type":"address"},{"type":"bool"}],"name":"setPair","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"type":"address"},{"type":"bool"}],"name":"setSellWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"type":"address[]"},{"type":"bool"}],"name":"setSellWhitelistBatch","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"type":"address"}],"name":"setAdmin","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"openTrading","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"type":"address"},{"type":"bool"}],"name":"setWhitelist","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"type":"address[]"},{"type":"bool"}],"name":"setWhitelistBatch","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},
 ];
+
+// 合约用自定义错误回滚，这里把 4 字节选择器翻译成中文原因
+const CUSTOM_ERRORS = {
+  "30cd7471": "不是 owner（当前钱包没有权限）",
+  "d92e233d": "地址不能是零地址",
+  "965f8d94": "交易开关已经打开过了",
+  "e09f0331": "交易开关还没打开（弃权必须在开盘之后）",
+  "f4d678b8": "余额不足",
+  "13be252b": "授权额度不足",
+  "c2e5347d": "批量列表是空的",
+  "a5c94054": "白名单只能加普通钱包，不能加合约地址（池子、路由、批量转账工具等）",
+  "1f2a2005": "不允许别人替你发起 0 金额转账（防地址投毒）",
+};
 
 /* ═══════════════════ 工具 ═══════════════════ */
 const $ = (s) => document.querySelector(s);
@@ -344,6 +283,7 @@ const hhmmss = (s) => {
 /** 解码 Error(string) —— 合约回滚原因藏在 constant_result 里，外层 result.result 仍然是 true */
 function decodeRevert(constResult) {
   const cr = (constResult || [])[0] || "";
+  if (cr && CUSTOM_ERRORS[cr.slice(0, 8)] && cr.length <= 8) return CUSTOM_ERRORS[cr.slice(0, 8)];
   if (!cr || !cr.startsWith("08c379a0")) return cr ? "(未知回滚数据 0x" + cr.slice(0, 16) + "…)" : null;
   const body = cr.slice(8);
   const len = parseInt(body.slice(64, 128), 16);
@@ -386,9 +326,6 @@ async function connect() {
 /* ═══════════════════ 读状态 ═══════════════════ */
 async function contract() { return await tw.contract(ABI, addr); }
 
-// Admin 可以操作的按钮 ID —— 仅白名单相关；其它一律 owner-only。
-const ADMIN_BTN_IDS = new Set(["btnWlAdd", "btnWlDel", "btnWlBatchAdd", "btnWlBatchDel"]);
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -419,47 +356,33 @@ async function refresh() {
     const c = await contract();
     // 串行读取 + 每次之间小间隔，避免 TronGrid 3 req/s 限流
     const r = await safeCall(() => c.status().call(), "status");
+    const ZERO = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"; // TRON address(0) 的 base58
     st = {
-      launched: r[0], openAt: Number(r[1]), now: Number(r[2]),
-      window: Number(r[3]), max: Number(r[4]), sellOpen: r[5],
-      owner: tw.address.fromHex(r[6]),
+      owner: tw.address.fromHex(r[0]), open: r[1], openedAt: Number(r[2]), supply: r[3].toString(),
     };
     await sleep(350);
-    const sup = await safeCall(() => c.totalSupply().call(), "totalSupply");
-    await sleep(350);
     const bal = await safeCall(() => c.balanceOf(me).call(), "balanceOf");
-    await sleep(350);
-    const adminHex = await safeCall(() => c.admin().call(), "admin");
-    st.admin = tw.address.fromHex(adminHex);
-    const ZERO = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"; // TRON address(0) 的 base58
 
-    $("#vSupply").textContent = fmt(sup.toString());
+    $("#vSupply").textContent = fmt(st.supply);
     $("#vMyBal").textContent = fmt(bal.toString());
-    $("#vWindow").textContent = st.window + " 秒";
-    $("#vMax").textContent = st.max + " 秒";
-    $("#vOpenAt").textContent = st.launched ? tsText(st.openAt) : "未启动";
-    $("#vOwner").textContent = st.owner;
-    $("#curAdmin").value = st.admin === ZERO ? "（未设置）" : st.admin;
+    $("#vOpenAt").textContent = st.open ? tsText(st.openedAt) : "未开盘";
+    $("#vOwner").textContent = st.owner === ZERO ? "已弃权（零地址）" : st.owner;
 
     const isOwner = st.owner === me;
-    const isAdmin = st.admin !== ZERO && st.admin === me;
     const rp = $("#rolePill");
     rp.style.display = "";
     if (isOwner) { rp.textContent = "你是 owner"; rp.className = "pill ok"; }
-    else if (isAdmin) { rp.textContent = "你是 admin（仅白名单权限）"; rp.className = "pill warn"; }
-    else { rp.textContent = "只读（非 owner / admin）"; rp.className = "pill bad"; }
+    else { rp.textContent = "只读（非 owner）"; rp.className = "pill bad"; }
 
     document.querySelectorAll("#app button").forEach((b) => {
       if (b.classList.contains("sm")) return; // 只读查询按钮永远可点
-      if (isOwner) { b.disabled = false; return; }
-      if (isAdmin && ADMIN_BTN_IDS.has(b.id)) { b.disabled = false; return; }
-      b.disabled = true;
+      b.disabled = !isOwner;
     });
+    if (st.open) $("#btnOpenTrading").disabled = true;   // 已开盘，按钮没用了
+    if (!st.open) $("#btnRenounce").disabled = true;     // 合约禁止开盘前弃权
 
     paintPhase();
     $("#app").style.display = "";
-    clearInterval(timer);
-    timer = setInterval(paintPhase, 1000);
   } catch (e) {
     const msg = (e.message || String(e)).toLowerCase();
     if (msg.includes("429") || msg.includes("too many") || msg.includes("rate")) {
@@ -473,27 +396,18 @@ async function refresh() {
 
 function paintPhase() {
   if (!st) return;
-  const now = Math.floor(Date.now() / 1000);
   const box = $("#phase"), warn = $("#launchWarn");
-  if (!st.launched) {
+  $("#countdown").textContent = "";
+  if (!st.open) {
     box.className = "phase p1";
-    $("#phaseName").textContent = "① 未启动";
-    $("#phaseDesc").textContent = "谁也买不到 —— 只有 owner / 白名单能碰池子（留给加流动性）";
-    $("#countdown").textContent = "";
+    $("#phaseName").textContent = "① 未开盘";
+    $("#phaseDesc").textContent = "只有白名单能在池子里买卖、加池子；钱包之间互转不受影响";
     warn.style.display = "";
-    warn.innerHTML = "还没调用 <code>launch()</code>。<b>先加流动性 → 登记池子地址 → 再 launch()</b>，顺序反了会让狙击机器人在你开盘前先买走。";
-  } else if (now < st.openAt) {
-    box.className = "phase p2";
-    $("#phaseName").textContent = "② 防夹窗口中";
-    $("#phaseDesc").textContent = "所有人可买；卖出仅限白名单";
-    $("#countdown").textContent = hhmmss(st.openAt - now);
-    warn.style.display = "";
-    warn.innerHTML = "窗口结束后<b>自动</b>对所有人永久放开，不需要再调任何函数。";
+    warn.innerHTML = "顺序：<b>① 部署钱包先建池、加流动性（此前不要给任何人转币）→ ② 再转币、设白名单 → ③ 点「打开交易」</b>。打开后永久开放，关不掉。<br>加池前先核对池子储备是 0；如果池子已被别人建好并有储备，先停下来找技术确认。";
   } else {
     box.className = "phase p3";
-    $("#phaseName").textContent = "③ 已开盘";
-    $("#phaseDesc").textContent = "无任何限制，永久 —— owner 的开关已全部失效";
-    $("#countdown").textContent = "";
+    $("#phaseName").textContent = "② 已开盘";
+    $("#phaseDesc").textContent = "所有人自由买卖，永久 —— 白名单已无特权";
     warn.style.display = "none";
   }
 }
@@ -557,52 +471,30 @@ $("#btnLoad").onclick = async () => {
   if (!tw) { log("请先连接 TronLink。", "err"); return; }
   if (!validAddr(a, "合约地址")) return;
   addr = a;
-  localStorage.setItem("LOB_ADDR", a);
+  localStorage.setItem("LOB_V2_ADDR", a);
   $("#addrHint").textContent = "已加载：" + a;
   await refresh();
 };
 
-$("#btnSetWin").onclick = () => {
-  const v = parseInt($("#winSec").value, 10);
-  if (!(v >= 0 && v <= 360000000)) { log("窗口必须在 0–360000000 秒之间（合约硬上限 100000 小时）。", "err"); return; }
-  if (v > 3600 && !confirm(`⚠️ 你设置的窗口是 ${v} 秒（≈${(v/3600).toFixed(1)} 小时），确认要这么长吗？\n\n买入的用户必须等这么久才能卖出。`)) { log("已取消。", "warn"); return; }
-  send(`设置防夹窗口为 ${v} 秒`, "setProtectWindow(uint64)", [U64(v)]);
-};
-$("#btnLaunch").onclick = () => {
-  const w = st ? st.window : "?";
-  send("启动交易 launch()", "launch()", [],
-    `启动后 ${w} 秒内非白名单不能卖，到点自动对所有人永久放开。\n这个操作只能做一次，无法撤销。`);
-};
-$("#btnOpenNow").onclick = () => send("立刻开盘 openNow()", "openNow()", [], "放弃剩余防夹时间，立即对所有人放开。不可撤销。");
-$("#btnFwd").onclick = () => {
-  const v = parseInt($("#fwdTs").value, 10);
-  if (!v) { log("请填写一个 Unix 时间戳（秒）。", "err"); return; }
-  if (st && v >= st.openAt) { log(`只能提前。当前 openAt = ${st.openAt}（${tsText(st.openAt)}），必须填更小的值。`, "err"); return; }
-  send(`把开盘时间提前到 ${tsText(v)}`, "bringOpenForward(uint64)", [U64(v)]);
+$("#btnOpenTrading").onclick = () => {
+  if (!confirm("⚠️ 打开交易后永久开放，任何人（包括你）都关不掉。\n\n请确认流动性已经加好、池子地址已核对。\n\n确定打开吗？")) return;
+  send("打开交易 openTrading()", "openTrading()", [], "只能做一次，无法撤销。");
 };
 
-$("#btnPairOn").onclick = () => { const a = $("#pairAddr").value.trim(); if (validAddr(a, "池子地址")) send("登记池子 " + a, "setPair(address,bool)", [A(a), B(true)]); };
-$("#btnPairOff").onclick = () => { const a = $("#pairAddr").value.trim(); if (validAddr(a, "池子地址")) send("取消池子标记 " + a, "setPair(address,bool)", [A(a), B(false)]); };
-$("#btnPairCheck").onclick = async () => {
-  const a = $("#pairAddr").value.trim(); if (!validAddr(a, "池子地址")) return;
-  const c = await contract(); const r = await c.isPair(a).call();
-  log(`${a} ${r ? "已登记为池子" : "未登记"}`, r ? "ok" : "warn");
-};
-
-$("#btnWlAdd").onclick = () => { const a = $("#wlOne").value.trim(); if (validAddr(a, "地址")) send("加入白名单 " + a, "setSellWhitelist(address,bool)", [A(a), B(true)]); };
-$("#btnWlDel").onclick = () => { const a = $("#wlOne").value.trim(); if (validAddr(a, "地址")) send("移出白名单 " + a, "setSellWhitelist(address,bool)", [A(a), B(false)]); };
+$("#btnWlAdd").onclick = () => { const a = $("#wlOne").value.trim(); if (validAddr(a, "地址")) send("加入白名单 " + a, "setWhitelist(address,bool)", [A(a), B(true)]); };
+$("#btnWlDel").onclick = () => { const a = $("#wlOne").value.trim(); if (validAddr(a, "地址")) send("移出白名单 " + a, "setWhitelist(address,bool)", [A(a), B(false)]); };
 $("#btnWlCheck").onclick = async () => {
   const a = $("#wlOne").value.trim(); if (!validAddr(a, "地址")) return;
-  const c = await contract(); const r = await c.sellWhitelist(a).call();
+  const c = await contract(); const r = await safeCall(() => c.isWhitelisted(a).call(), "isWhitelisted");
   log(`${a} ${r ? "在白名单里" : "不在白名单"}`, r ? "ok" : "warn");
 };
 $("#btnWlBatchAdd").onclick = () => {
   const l = parseList($("#wlBatch").value); if (!l?.length) return;
-  send(`批量加入白名单（${l.length} 个地址）`, "setSellWhitelistBatch(address[],bool)", [{ type: "address[]", value: l }, B(true)]);
+  send(`批量加入白名单（${l.length} 个地址）`, "setWhitelistBatch(address[],bool)", [{ type: "address[]", value: l }, B(true)]);
 };
 $("#btnWlBatchDel").onclick = () => {
   const l = parseList($("#wlBatch").value); if (!l?.length) return;
-  send(`批量移出白名单（${l.length} 个地址）`, "setSellWhitelistBatch(address[],bool)", [{ type: "address[]", value: l }, B(false)]);
+  send(`批量移出白名单（${l.length} 个地址）`, "setWhitelistBatch(address[],bool)", [{ type: "address[]", value: l }, B(false)]);
 };
 $("#btnWlBatchCheck").onclick = async () => {
   const l = parseList($("#wlBatch").value); if (!l?.length) return;
@@ -613,28 +505,20 @@ $("#btnWlBatchCheck").onclick = async () => {
   log(`批量查询：${inN}/${l.length} 在白名单里`, "info");
 };
 
-$("#btnSetAdmin").onclick = () => {
-  const a = $("#newAdmin").value.trim(); if (!validAddr(a, "admin 地址")) return;
-  send("设置 admin 为 " + a, "setAdmin(address)", [A(a)],
-    "该地址将获得白名单管理权限（不能 launch、不能改 pair、不能改窗口、不能转/弃 owner）。\n可以随时更换或清零。");
-};
-$("#btnClearAdmin").onclick = () => {
-  if (!confirm("确定清零 admin 吗？清零后该地址不再有任何管理权限。")) return;
-  send("清零 admin", "setAdmin(address)", [A("T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb")]);
-};
-
 $("#btnXferOwner").onclick = () => {
   const a = $("#newOwner").value.trim(); if (!validAddr(a, "新 owner")) return;
-  send("转移 owner 到 " + a, "transferOwnership(address)", [A(a)], "转移后你将失去全部管理权限。\n注意：admin 保持不变，新 owner 决定是否更换。");
+  send("转移 owner 到 " + a, "transferOwnership(address)", [A(a)], "转移后你将失去全部管理权限（开交易、改白名单、弃权）。\n请务必确认新地址是你们自己控制的。");
 };
 $("#btnRenounce").onclick = () => {
-  if (!confirm("弃权后 owner 变成零地址，所有 owner 权限永久失效。\n（开盘仍会按时自动触发，合约不会被锁死。）\n\n⚠️ 当前 admin 不会被清零 —— 如果不希望遗留 admin 权限，请先在上面【清零】admin 再弃权。\n\n确定吗？")) return;
+  if (!confirm("弃权后 owner 变成零地址，所有 owner 权限永久失效，白名单也再改不了。\n\n确定吗？")) return;
   send("弃权 renounceOwnership()", "renounceOwnership()", [], "不可逆！");
 };
 
 /* 启动 */
-const saved = localStorage.getItem("LOB_ADDR");
-if (saved) { $("#addr").value = saved; addr = saved; }
+// v2 用新的存储键：旧浏览器里存的是 v1 合约地址，自动带出来会加载失败
+const DEFAULT_ADDR = "TW4SJrdnPNewLshAJ8GcYncbtKu5QbUhuF";
+const saved = localStorage.getItem("LOB_V2_ADDR") || DEFAULT_ADDR;
+$("#addr").value = saved; addr = saved;
 log("等待连接 TronLink…", "info");
 if (window.tronLink || window.tronWeb) setTimeout(connect, 400);
 </script>
